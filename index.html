@@ -6,5 +6,241 @@
 <body>
   <h1>아두이노 미아방지 팔지</h1>
   gps모듈,블루투스 모듈
+<h2> 계획하게 된 동기</h2>
+시중에 판매되고 있는 미아방지팔찌들은 대부분 부모님의 연락처를 적어놓는 등의 방식을 사용합니다.
+아이가 보호자를 잃어버리는 근본적인 문제를 예방하는 것이 아닌 그 후의 문제에 대해서만 국한된 해결방안이
+존재하는 이러한 미아방지팔찌에서 문제의식을 느끼고 보호자와 아이의 거리가 멀어지는 것 자체를 방지하는
+팔찌를 만들고자 하였습니다.
+<h2>아두이노 코드</h2>
+  #include <SoftwareSerial.h> //수신<br>
+#include <LedControl.h> //도트 매트릭스<br>
+LedControl led = LedControl(13,12,11,2); //도트 매트릭스<br>
+SoftwareSerial gpsSerial(9,10);<br>
+// gps - arduino<br>
+// tx - 10<br>
+// rx - 11<br>
+// vcc - 5v<br>
+// gnd - gnd<br>
+SoftwareSerial BTSerial(2, 3);<br>
+int side2;<br>
+int side1;<br>
+//tx -2<br>
+//rx - 3<br>
+int BTdata1;<br>
+int BTdata2;<br>
+char c = ""; // Wn 인지 구분 및 str에 저장.<br>
+String str = ""; // \n 전까지 c 값을 저장.<br>
+String targetStr = "GPGGA"; // str의 값이 NMEA의 GPGGA 값인지 타겟<br>
+
+byte rightup[]=<br>
+ {B00000000,<br>
+ B00111110,<br>
+ B00011110,<br>
+ B00001110,<br>
+ B00010110,<br>
+ B00100010,<br>
+ B01000000,<br>
+ B00000000};<br>
+
+byte leftup[]=<br>
+ {B00000000,<br>
+ B01111100,<br>
+ B01111000,<br>
+ B01110000,<br>
+ B01101000,<br>
+ B01000100,<br>
+ B00000010,<br>
+ B00000000};<br>
+
+byte leftdown[]=
+ {B00000000,
+ B00000010,
+ B01000100,
+ B01101000,
+ B01110000,
+ B01111000,
+ B01111100,
+ B00000000};
+
+byte rightdown[]=
+ {B00000000,
+ B01000000,
+ B00100010,
+ B00010110,
+ B00001110,
+ B00011110,
+ B00111110,
+ B00000000};
+
+void setup() {
+// put your setup code here, to run once:
+Serial.begin(9600);
+Serial.println("Start GPS... ");
+gpsSerial.begin(9600);
+BTSerial.begin(9600);
+BTSerial.begin(9600);
+led.shutdown(0,false);// 도트 매트릭스
+led.shutdown(1,false);
+led.setIntensity(0,15);
+led.setIntensity(1,15);
+led.clearDisplay(0);
+led.clearDisplay(1);
+}
+
+void loop() {
+// put your main code here, to run repeatedly:
+
+if(gpsSerial.available()) // gps 센서 통신 가능?
+{
+c=gpsSerial.read(); // 센서의 값 읽기
+if(c == '\n'){ // \n 값인지 구분.
+// \n 일시. 지금까지 저장된 str 값이 targetStr과 맞는지 구분
+if(targetStr.equals(str.substring(1, 6))){
+// NMEA 의 GPGGA 값일시
+Serial.println(str);
+// , 를 토큰으로서 파싱.
+int first = str.indexOf(",");
+int two = str.indexOf(",", first+1);
+int three = str.indexOf(",", two+1);
+int four = str.indexOf(",", three+1);
+int five = str.indexOf(",", four+1);
+// Lat과 Long 위치에 있는 값들을 index로 추출
+String Lat = str.substring(two+1, three);
+String Long = str.substring(four+1, five);
+// Lat의 앞값과 뒷값을 구분
+String Lat1 = Lat.substring(0, 2);
+String Lat2 = Lat.substring(2);
+// Long의 앞값과 뒷값을 구분
+String Long1 = Long.substring(0, 3);
+String Long2 = Long.substring(3);
+// 좌표 계산.
+double LatF = Lat1.toDouble() + Lat2.toDouble()/60;
+float LongF = Long1.toFloat() + Long2.toFloat()/60;
+// 좌표 출력.
+Serial.print("Lat : ");
+Serial.println(LatF, 15);
+Serial.print("Long : ");
+Serial.println(LongF, 15);
+
+}
+// str 값 초기화
+str = "";
+}else{ // \n 아닐시, str에 문자를 계속 더하기
+str += c;
+}
+}
+if (BTSerial.available()) { //블루투스에서 넘어온 데이터가 있다면
+BTdata1 = BTSerial.read();
+Serial.println(BTdata1, DEC); //시리얼모니터에 데이터를 출력
+delay(1000);
+BTdata2 = BTSerial.read();
+Serial.println(BTdata2); //시리얼모니터에 데이터를 출력
+}
+
+Side1=BTdata1 - LongF;
+side2=BTdata2 - LatF;
+if(side_x>0 && side_y>0){
+  for(int i = 0; i < 8; i++){
+    led.setRow(0, i, rightup[i]);
+}
+}
+if(side_x>0 && side_y>0){
+  for(int i = 0; i < 8; i++){
+    led.setRow(0, i, rightdown[i]);
+}
+}
+
+if(side_x>0 && side_y>0){
+  for(int i = 0; i < 8; i++){
+    led.setRow(0, i, leftup[i]);
+}
+}
+if(side_x>0 && side_y>0){
+  for(int i = 0; i < 8; i++){
+    led.setRow(0, i, leftdown[i]);
+}
+}
+
+
+}
+
+#include <SoftwareSerial.h> //송신
+
+SoftwareSerial gpsSerial(10,11);
+// gps - arduino
+// tx - 10
+// rx - 11
+// vcc - 5v
+// gnd - gnd
+SoftwareSerial BTSerial(2, 3);
+//tx -2
+//rx - 3
+char c = ""; // Wn 인지 구분 및 str에 저장.
+String str = ""; // \n 전까지 c 값을 저장.
+String targetStr = "GPGGA"; // str의 값이 NMEA의 GPGGA 값인지 타겟
+
+void setup() {
+// put your setup code here, to run once:
+Serial.begin(9600);
+Serial.println("Start GPS... ");
+gpsSerial.begin(9600);
+BTSerial.begin(9600);
+}
+
+void loop() {
+// put your main code here, to run repeatedly:
+
+if(gpsSerial.available()) // gps 센서 통신 가능?
+{
+c=gpsSerial.read(); // 센서의 값 읽기
+if(c == '\n'){ // \n 값인지 구분.
+// \n 일시. 지금까지 저장된 str 값이 targetStr과 맞는지 구분
+if(targetStr.equals(str.substring(1, 6))){
+// NMEA 의 GPGGA 값일시
+Serial.println(str);
+// , 를 토큰으로서 파싱.
+int first = str.indexOf(",");
+int two = str.indexOf(",", first+1);
+int three = str.indexOf(",", two+1);
+int four = str.indexOf(",", three+1);
+int five = str.indexOf(",", four+1);
+// Lat과 Long 위치에 있는 값들을 index로 추출
+String Lat = str.substring(two+1, three);
+String Long = str.substring(four+1, five);
+// Lat의 앞값과 뒷값을 구분
+String Lat1 = Lat.substring(0, 2);
+String Lat2 = Lat.substring(2);
+// Long의 앞값과 뒷값을 구분
+String Long1 = Long.substring(0, 3);
+String Long2 = Long.substring(3);
+// 좌표 계산.
+double LatF = Lat1.toDouble() + Lat2.toDouble()/60;
+float LongF = Long1.toFloat() + Long2.toFloat()/60;
+// 좌표 출력.
+Serial.print("Lat : ");
+Serial.println(LatF, 15);
+Serial.print("Long : ");
+Serial.println(LongF, 15);
+Serial.println(LatF); //센서값을 시리얼 모니터로 전송
+delay(1000);
+if(Serial.available()){   //시리얼모니터에 입력된 데이터가 있다면
+BTSerial.write(LatF);//블루투스를 통해 입력된 데이터 전달
+}
+Serial.println(LongF); //센서값을 시리얼 모니터로 전송
+delay(1000);
+if(Serial.available()){//시리얼모니터에 입력된 데이터가 있다면
+BTSerial.write(LongF);//블루투스를 통해 입력된 데이터 전달
+}
+}
+// str 값 초기화
+str = "";
+}else{ // \n 아닐시, str에 문자를 계속 더하기
+str += c;
+}
+}
+}
+<h2> 결과 및 한계 </h2>
+gps모듈이 고장나 최종적으로 완성하지 못 했습니다. <br>블루투스는 서로 마스터와 슬레이브
+를 이용해서 성공했지만 여러므로 미숙한 점이 많았습니다. <br>다음 아두이노를 다룬 다면 여러 문법을 배우고 테스트 하는 시간을 더욱 투자해야 할것 같습니다.
 </body>
 </html>
